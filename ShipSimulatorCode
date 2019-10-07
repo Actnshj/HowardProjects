@@ -1,0 +1,234 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class ShipControls : MonoBehaviour
+{
+	public Transform ship;
+	float savedminspeed;
+	float savedmaxedspeed;
+	public float rollSpeed = 3;
+	public float pitchSpeed = 3;
+	public float moveSpeed;
+	public float minSpeed;
+	public float maxSpeed;
+	public float minThrusterSpeed;
+	public float maxThrusterSpeed;
+	float rollvalue = 0;
+	Rigidbody rb;
+	ShipHotKeys hotKeys;
+	HUD hud;
+	Vector3 inputVector;
+	public float speed;
+	public bool inSpace;
+	public GameObject waterSpout;
+	public GameObject waterSpout2;
+	public GameObject KillCam;
+	[SerializeField]
+	 float health;
+
+	void Start()
+	{
+		savedminspeed = minSpeed;
+		savedmaxedspeed = maxSpeed;
+		rb = this.GetComponent<Rigidbody>();
+		speed = moveSpeed;
+		hotKeys = FindObjectOfType<ShipHotKeys>();
+		hud = FindObjectOfType<HUD>();
+		hud.UpdateSpeedometer();
+		rollvalue = transform.eulerAngles.z;
+		health = GetComponentInChildren<Scrollbar>().size;
+	}
+
+	void Update()
+	{
+		if (hotKeys.thrustersOn == false)
+		{
+    //Saved minimun and maximum values for move speed.
+			minSpeed = savedminspeed;
+			maxSpeed = savedmaxedspeed;
+		}
+
+		if (health <= 0)
+		{			
+			health = 0;
+			KillShip();
+		}
+    //pitchspeed, rollspeed, -1, and  1, are values taking from the physical 6DoF Platform.
+		moveSpeed = Map(Input.GetAxis("Forward Throttle"), 1, -1, minSpeed, maxSpeed);
+		speed = Mathf.Lerp(speed, moveSpeed, .01f);
+		inputVector = new Vector3(-Input.GetAxis("Vertical") * pitchSpeed, 0, -Input.GetAxis("Horizontal") * rollSpeed * 1);
+
+
+		float val = Mathf.DeltaAngle(transform.localEulerAngles.z,0);
+		float pval = Mathf.DeltaAngle(transform.localEulerAngles.x, 0);
+
+		
+    Updates the MPH on the screen for the ship.
+		hud.UpdateSpeedometer();
+    
+    //Input for moving the ship forward
+		if (Input.GetAxis("Forward Throttle") > 0)
+		{
+    //Changes the move speed of the ship depending on if it's in space or not.
+			if (inSpace == true)
+			{
+				moveSpeed += 20 * Time.deltaTime;
+			}
+
+			else
+			{
+				moveSpeed += 1;
+			}
+
+			speed = moveSpeed;
+
+		}
+
+
+//Changes the thruster speed of the ship depending on if it's in space or not.
+		if (inSpace == true)
+		{
+			if (speed >= maxThrusterSpeed && hotKeys.thrustersOn == false)
+			{
+				speed = maxThrusterSpeed;
+			}
+
+			else
+			{
+				if (speed >= maxThrusterSpeed * 2)
+				{
+					speed = maxThrusterSpeed * 2;
+				}
+			}
+		}
+
+		else
+		{
+
+
+			if (hotKeys.thrustersOn == true)
+			{
+
+				if (speed >= maxThrusterSpeed)
+				{
+					speed = maxThrusterSpeed;
+				}
+			}
+
+		}
+
+
+		if (speed <= 0)
+		{
+			speed = 0;
+		}
+	}
+	void FixedUpdate()
+	{
+    //Calculates Torque and Velocity of the ship.
+		rb.AddRelativeTorque(inputVector * Time.deltaTime);
+		rb.velocity = transform.forward * moveSpeed;
+	}
+
+	float Map(float value, float low1, float high1, float low2, float high2)
+	{
+		float mapvalue = low2 + (value - low1) * (high2 - low2) / (high1 - low1);
+		return mapvalue;
+	}
+
+//Creates the explosion then destroys the ship.
+	void KillShip()
+	{
+		Instantiate(Resources.Load("Explosion"), transform.position, transform.rotation);
+		ship.gameObject.SetActive(false);
+		KillCam.SetActive(true);
+		speed = 0;
+		moveSpeed = 0;
+		Destroy(gameObject,1);
+	}
+
+	void OnCollisionEnter(Collision other)
+	{
+		
+		if (other.collider.tag == "Enemy")
+		{
+    //Hits the enemy with speed going over 300 explodes on impact.
+			if (speed >= 300)
+			{
+				
+				KillShip();
+			}
+
+
+		}
+
+			if (other.collider.tag == "Object/Wall")
+			{
+			//Hits the wall or any object with speed going over 300 explodes on impact.
+				if (speed >= 300)
+				{
+					KillShip();
+				}
+			}
+	}
+
+
+	void OnTriggerEnter(Collider other)
+	{
+		//When the ship hits water causes splashing effect.
+		if (other.tag == "Water")
+		{
+			StopAllCoroutines();
+			waterSpout.SetActive(true);
+			waterSpout2.SetActive(true);
+
+		}
+
+		if (other.tag == "EnemyBullet")
+		{
+			health -= other.GetComponent<projectileScript>().Damage;
+			GetComponentInChildren<Scrollbar>().size -= other.GetComponent<projectileScript>().Damage;
+
+		}
+	}
+
+	void OnTriggerStay(Collider other)
+	{
+
+		if (other.tag == "Water")
+		{
+			StopAllCoroutines();
+			waterSpout.SetActive(true);
+			waterSpout2.SetActive(true);
+
+		}
+		waterSpout.SetActive(true);
+		waterSpout2.SetActive(true);
+
+	}
+
+
+
+	void OnTriggerExit(Collider other)
+	{
+
+		if (other.tag == "Water")
+		{
+			StartCoroutine(delay());
+
+		}
+		
+		
+
+	}
+
+//Delay used for turn off splashing effect whenever ship lifts off the water.
+	IEnumerator delay()
+	{
+
+		yield return new WaitForSeconds(1);
+		waterSpout.SetActive(false);
+		waterSpout2.SetActive(false);
+	}
