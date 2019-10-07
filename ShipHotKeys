@@ -1,0 +1,107 @@
+
+	public Rigidbody body;
+	public GameObject shuttle;
+	public GameObject thrusters;
+	public bool thrustersOn;
+	public GameObject MissileSite1;
+	public GameObject MissileSite2;
+	public GameObject gunner;
+	public GameObject gunner2;
+	public float MissleTimer = 500;
+	public float bulletTimer = 50;
+	public bool missileLoaded;
+	public bool bulletsLoaded;
+	GameObject[] enemies;
+
+	// Update is called once per frame
+	void Update()
+	{
+		enemies = GameObject.FindGameObjectsWithTag("Enemy");
+		Transform newtarget = null;
+		float nearestValue = Mathf.Infinity;
+		GameObject nearestEnemy = null;
+
+
+        //The player view will lock on to the nearest enemy when firing.
+		for (int i = 0; i < enemies.Length; i++)
+		{
+			EnemyScript enem = enemies[i].GetComponent<EnemyScript>();
+
+			Vector3 screenSpace = Camera.main.WorldToScreenPoint(enem.transform.position);
+			screenSpace.x -= Screen.width / 2f;
+			screenSpace.y -= Screen.height / 2f;
+			screenSpace.z = 0;
+			
+			if (screenSpace.magnitude < nearestValue)
+			{
+				nearestValue = screenSpace.magnitude;
+				nearestEnemy = enemies[i];
+			}
+
+
+		}
+
+		newtarget = nearestEnemy.transform;
+
+        //Missile Cooldown Time
+		if (MissleTimer < 50)
+		{
+			MissleTimer++;
+
+		}
+
+		if (MissleTimer >= 50)
+		{
+			MissleTimer = 50;
+			missileLoaded = true;
+		}
+
+        //bullet Cooldown TIme
+		if (bulletTimer < 2)
+		{
+			bulletTimer++;
+
+		}
+		if (bulletTimer >= 2)
+		{
+			bulletTimer = 2;
+			bulletsLoaded = true;
+		}
+
+        //Input for the thrusters
+		if (Input.GetAxis("Thrusters") != 0)
+		{
+			thrustersOn = true;
+			thrusters.SetActive(true);
+		}
+
+		else
+		{
+			thrustersOn = false;
+			thrusters.SetActive(false);
+
+		}
+
+        // Input for Bullets and Missiles
+		if (Input.GetAxis("Fire2") > 0 && missileLoaded == true)
+		{
+			GameObject m = (GameObject)Instantiate(Resources.Load("Hellfire"), MissileSite1.transform.position, MissileSite1.transform.rotation);
+			m.GetComponent<projectileScript>().Target = newtarget;
+			Instantiate(Resources.Load("Hellfire"), MissileSite2.transform.position, MissileSite2.transform.rotation);
+			missileLoaded = false;
+			MissleTimer = 0;
+		}
+
+		if (Input.GetAxis("Fire1") > 0 && bulletsLoaded == true)
+		{
+			GameObject m = (GameObject)Instantiate(Resources.Load("Sphere"), gunner.transform.position, gunner.transform.rotation);
+			m.GetComponent<projectileScript>().Target = newtarget;
+			GameObject m2 = (GameObject)Instantiate(Resources.Load("Sphere"), gunner2.transform.position, gunner2.transform.rotation);
+			m2.GetComponent<projectileScript>().Target = newtarget;
+			bulletsLoaded = false;
+			bulletTimer = 0;
+		}
+
+
+	}
+}
